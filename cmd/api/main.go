@@ -22,7 +22,6 @@ func main() {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("HOST_IP_ADDRESS"), os.Getenv("HOST_PORT"), os.Getenv("DB_NAME"))
 
 	db, errDb := sql.Open("postgres", dsn)
-
 	if errDb != nil {
 		panic(errDb)
 	}
