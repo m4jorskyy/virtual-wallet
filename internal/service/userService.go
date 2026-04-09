@@ -2,17 +2,20 @@ package service
 
 import (
 	"virtual-wallet/internal/models/user"
-	"virtual-wallet/internal/repository"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserService struct {
-	repository *repository.UserRepository
+type UserRepository interface {
+	RegisterUser(profile *user.UserProfile, creds *user.UserCredentials) (int64, error)
 }
 
-func NewUserService(repository *repository.UserRepository) *UserService {
-	return &UserService{repository: repository}
+type UserService struct {
+	repository UserRepository
+}
+
+func NewUserService(repo UserRepository) *UserService {
+	return &UserService{repository: repo}
 }
 
 func (r *UserService) RegisterNewUser(firstName string, lastName string, email string, login string, password string) (int64, error) {
