@@ -21,7 +21,7 @@ func (r *UserRepository) RegisterUser(profile *user.UserProfile, creds *user.Use
 
 	var returnedID int64
 
-	errReturnID := tx.QueryRow("INSERT INTO user_profiles (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING user_profiles.id", profile.FirstName, profile.LastName, profile.Email).Scan(&returnedID)
+	errReturnID := tx.QueryRow("INSERT INTO user_profile (first_name, last_name, email) VALUES ($1, $2, $3) RETURNING user_profile.id", profile.FirstName, profile.LastName, profile.Email).Scan(&returnedID)
 
 	if errReturnID != nil {
 		errRollback := tx.Rollback()
@@ -31,7 +31,7 @@ func (r *UserRepository) RegisterUser(profile *user.UserProfile, creds *user.Use
 		return 0, errReturnID
 	}
 
-	_, errExec := tx.Exec("INSERT INTO user_credentials (username, password_hash, profile_id) VALUES ($1, $2, $3)", creds.Username, creds.PasswordHash, returnedID)
+	_, errExec := tx.Exec("INSERT INTO user_credential (username, password_hash, profile_id) VALUES ($1, $2, $3)", creds.Username, creds.PasswordHash, returnedID)
 
 	if errExec != nil {
 		errRollback := tx.Rollback()
