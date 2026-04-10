@@ -45,7 +45,10 @@ func main() {
 
 	mux.HandleFunc("POST /api/register/", userHandler.RegisterUser)
 
+	fmt.Println("Server started")
+
 	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), mux)
+
 	if errHTTP != nil {
 		panic(errHTTP)
 	}
