@@ -1,21 +1,59 @@
 package service
 
 import (
+	"errors"
+	"time"
 	"virtual-wallet/internal/models/user"
 
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserRepository interface {
 	RegisterUser(profile *user.UserProfile, creds *user.UserCredentials) (int64, error)
+	LoginUser(username string) (int64, string, string, error)
 }
 
 type UserService struct {
+	jwtSecret  string
 	repository UserRepository
 }
 
-func NewUserService(repo UserRepository) *UserService {
-	return &UserService{repository: repo}
+func NewUserService(jwtSecret string, repo UserRepository) *UserService {
+	return &UserService{jwtSecret: jwtSecret, repository: repo}
+}
+
+func GenerateToken(profileID int64, secret string) (string, error) {
+	registeredClaims := jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute))}
+	claims := &user.UserClaims{ProfileID: profileID, RegisteredClaims: registeredClaims}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, errSignedString := token.SignedString([]byte(secret))
+
+	if errSignedString != nil {
+		return "", errSignedString
+	}
+
+	return signedToken, nil
+}
+
+func (r *UserService) VerifyToken(jwtToken string) (int64, error) {
+	claims := &user.UserClaims{}
+
+	parsedClaims, errParseClaims := jwt.ParseWithClaims(jwtToken, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(r.jwtSecret), nil
+	})
+
+	if errParseClaims != nil {
+		return 0, errParseClaims
+	}
+
+	if !parsedClaims.Valid {
+		return 0, errors.New("invalid token")
+	}
+
+	return claims.ProfileID, nil
+
 }
 
 func (r *UserService) RegisterNewUser(firstName string, lastName string, email string, login string, password string) (int64, error) {
@@ -34,4 +72,31 @@ func (r *UserService) RegisterNewUser(firstName string, lastName string, email s
 	}
 
 	return registerUserID, nil
+}
+
+func (r *UserService) LoginUser(username string, password string) (string, string, error) {
+	var returnedUserID int64
+	var returnedPasswordHash string
+	var returnedFirstName string
+	var errReturn error
+
+	returnedUserID, returnedPasswordHash, returnedFirstName, errReturn = r.repository.LoginUser(username)
+
+	if errReturn != nil {
+		return "", "", errReturn
+	}
+
+	errCompare := bcrypt.CompareHashAndPassword([]byte(returnedPasswordHash), []byte(password))
+
+	if errCompare != nil {
+		return "", "", errCompare
+	}
+
+	jwtToken, errToken := GenerateToken(returnedUserID, r.jwtSecret)
+
+	if errToken != nil {
+		return "", "", errToken
+	}
+
+	return jwtToken, returnedFirstName, nil
 }
