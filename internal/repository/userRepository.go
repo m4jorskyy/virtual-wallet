@@ -48,3 +48,18 @@ func (r *UserRepository) RegisterUser(profile *user.UserProfile, creds *user.Use
 
 	return returnedID, nil
 }
+
+func (r *UserRepository) LoginUser(username string) (int64, string, string, error) {
+	var returnedID int64
+	var returnedPasswordHash string
+	var returnedFirstName string
+
+	errReturned := r.db.QueryRow("SELECT user_credential.profile_id, user_credential.password_hash, user_profile.first_name FROM user_credential, user_profile WHERE username = $1 AND user_credential.profile_id = user_profile.id", username).Scan(&returnedID, &returnedPasswordHash, &returnedFirstName)
+
+	if errReturned != nil {
+		return 0, "", "", errReturned
+	}
+
+	return returnedID, returnedPasswordHash, returnedFirstName, nil
+
+}

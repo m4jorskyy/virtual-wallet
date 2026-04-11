@@ -40,10 +40,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	repo := repository.NewUserRepository(db)
-	svc := service.NewUserService(repo)
-	userHandler := handlers.NewUserHandler(svc)
+	svc := service.NewUserService(os.Getenv("JWT_SECRET"), repo)
+	userHandler := handlers.NewUserHandler(os.Getenv("JWT_SECRET"), svc)
 
 	mux.HandleFunc("POST /api/register/", userHandler.RegisterUser)
+	mux.HandleFunc("POST /api/login/", userHandler.LoginUser)
 
 	fmt.Println("Server started")
 
