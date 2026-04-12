@@ -39,12 +39,19 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	repo := repository.NewUserRepository(db)
-	svc := service.NewUserService(os.Getenv("JWT_SECRET"), repo)
-	userHandler := handlers.NewUserHandler(os.Getenv("JWT_SECRET"), svc)
+	userRepo := repository.NewUserRepository(db)
+	userSvc := service.NewUserService(os.Getenv("JWT_SECRET"), userRepo)
+	userHandler := handlers.NewUserHandler(os.Getenv("JWT_SECRET"), userSvc)
+
+	walletRepo := repository.NewWalletRepository(db)
+	walletSvc := service.NewWalletService(walletRepo)
+	walletHandler := handlers.NewWalletHandler(walletSvc)
 
 	mux.HandleFunc("POST /api/register/", userHandler.RegisterUser)
 	mux.HandleFunc("POST /api/login/", userHandler.LoginUser)
+
+	mux.HandleFunc("GET /api/wallets/", userHandler.AuthMiddleware(walletHandler.GetWalletsByProfileID))
+	mux.HandleFunc("POST /api/wallet/create", userHandler.AuthMiddleware(walletHandler.CreateWallet))
 
 	fmt.Println("Server started")
 
