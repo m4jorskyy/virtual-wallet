@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"virtual-wallet/internal/models/data"
@@ -86,4 +87,41 @@ func (s *WalletHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Error encoding: %s", errEncode), http.StatusInternalServerError)
 	}
 
+}
+
+func (s *WalletHandler) AddFunds(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	profileID, ok := r.Context().Value(userContextKey).(int64)
+
+	if !ok {
+		http.Error(w, "Invalid userID", http.StatusInternalServerError)
+		return
+	}
+
+	var request data.AddFundsRequest
+	decoder := json.NewDecoder(r.Body)
+	errDecode := decoder.Decode(&request)
+
+	if errDecode != nil {
+		http.Error(w, fmt.Sprintf("Error decoding: %s", errDecode), http.StatusBadRequest)
+		return
+	}
+
+	errAddFunds := s.service.AddFunds(request.WalletID, profileID, request.Amount)
+
+	if errAddFunds != nil {
+		if errors.Is(errAddFunds, service.ErrInvalidAmount) {
+			http.Error(w, "Invalid amount", http.StatusBadRequest)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Error adding funds: %s", errAddFunds), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
