@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"time"
 	"virtual-wallet/internal/models/wallet"
 )
 
@@ -57,4 +58,37 @@ func (r *WalletRepository) CreateWallet(profileID int64, currency string) (int64
 	}
 
 	return returnedWalletID, nil
+}
+
+func (r *WalletRepository) AddFunds(walletID int64, profileID int64, amount int64) error {
+	tx, errTx := r.db.Begin()
+	if errTx != nil {
+		return errTx
+	}
+
+	defer func(tx *sql.Tx) {
+		errRollback := tx.Rollback()
+		if errRollback != nil {
+			return
+		}
+	}(tx)
+
+	_, errAddFunds := tx.Exec("UPDATE wallet SET balance = balance + $1 WHERE id = $2 AND profile_id = $3", amount, walletID, profileID)
+
+	if errAddFunds != nil {
+		return errAddFunds
+	}
+
+	_, errReturnedTransactionID := tx.Exec("INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, created_at, type) VALUES ($1, $2, $3, $4, $5)", 0, walletID, amount, time.Now(), "DEPOSIT")
+
+	if errReturnedTransactionID != nil {
+		return errReturnedTransactionID
+	}
+
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return errCommit
+	}
+
+	return nil
 }

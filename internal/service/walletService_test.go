@@ -25,6 +25,10 @@ func (m *MockWalletRepository) CreateWallet(profileID int64, currency string) (i
 	return 1, nil
 }
 
+func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount int64) error {
+	return nil
+}
+
 func TestWalletService_GetWalletsByProfileID(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
@@ -67,4 +71,24 @@ func TestWalletService_CreateWallet_InvalidCurrency(t *testing.T) {
 		t.Errorf("returnedWalletID is not 0")
 	}
 
+}
+
+func TestWalletService_AddFunds(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errAddFunds := svc.AddFunds(1, 1, 1000)
+	if errAddFunds != nil {
+		t.Errorf("errAddFunds is not nil")
+	}
+}
+
+func TestWalletService_AddFunds_InvalidAmount(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errAddFunds := svc.AddFunds(1, 1, -1000)
+	if errAddFunds == nil {
+		t.Errorf("Adding funds went through")
+	}
 }
