@@ -29,6 +29,10 @@ func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount 
 	return nil
 }
 
+func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+	return nil
+}
+
 func TestWalletService_GetWalletsByProfileID(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
@@ -90,5 +94,35 @@ func TestWalletService_AddFunds_InvalidAmount(t *testing.T) {
 	errAddFunds := svc.AddFunds(1, 1, -1000)
 	if errAddFunds == nil {
 		t.Errorf("Adding funds went through")
+	}
+}
+
+func TestWalletService_TransferFunds(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errTransferFunds := svc.TransferFunds(1, 1, 2, 1000)
+	if errTransferFunds != nil {
+		t.Errorf("errTransferFunds is not nil")
+	}
+}
+
+func TestWalletService_TransferFunds_InvalidAmount(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errTransferFunds := svc.TransferFunds(1, 1, 2, -1000)
+	if errTransferFunds == nil {
+		t.Errorf("Transferring funds went through")
+	}
+}
+
+func TestWalletService_TransferFunds_SameWallet(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errTransferFunds := svc.TransferFunds(1, 1, 1, 1000)
+	if errTransferFunds == nil {
+		t.Errorf("Transferring funds went through")
 	}
 }

@@ -125,3 +125,45 @@ func (s *WalletHandler) AddFunds(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (s *WalletHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	profileID, ok := r.Context().Value(userContextKey).(int64)
+
+	if !ok {
+		http.Error(w, "Invalid userID", http.StatusInternalServerError)
+		return
+	}
+
+	var request data.TransferFundsRequest
+	decoder := json.NewDecoder(r.Body)
+	errDecode := decoder.Decode(&request)
+
+	if errDecode != nil {
+		http.Error(w, fmt.Sprintf("Error decoding: %s", errDecode), http.StatusBadRequest)
+		return
+	}
+
+	errTransferFunds := s.service.TransferFunds(profileID, request.FromWalletID, request.ToWalletID, request.Amount)
+
+	if errTransferFunds != nil {
+		if errors.Is(errTransferFunds, service.ErrInvalidAmount) {
+			http.Error(w, "Invalid amount", http.StatusBadRequest)
+			return
+		}
+
+		if errors.Is(errTransferFunds, service.ErrSameWallet) {
+			http.Error(w, "Invalid wallet ID", http.StatusBadRequest)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Error transferring funds: %s", errTransferFunds), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

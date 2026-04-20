@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"time"
 	"virtual-wallet/internal/models/wallet"
 )
@@ -13,6 +14,8 @@ type WalletRepository struct {
 func NewWalletRepository(db *sql.DB) *WalletRepository {
 	return &WalletRepository{db: db}
 }
+
+var ZeroRowsAffectedError error = errors.New("0 rows affected")
 
 func (r *WalletRepository) GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error) {
 	var wallets []*wallet.Wallet
@@ -73,13 +76,72 @@ func (r *WalletRepository) AddFunds(walletID int64, profileID int64, amount int6
 		}
 	}(tx)
 
-	_, errAddFunds := tx.Exec("UPDATE wallet SET balance = balance + $1 WHERE id = $2 AND profile_id = $3", amount, walletID, profileID)
+	rows, errAddFunds := tx.Exec("UPDATE wallet SET balance = balance + $1 WHERE id = $2 AND profile_id = $3", amount, walletID, profileID)
 
 	if errAddFunds != nil {
 		return errAddFunds
 	}
 
+	affected, errRowsAffected := rows.RowsAffected()
+
+	if errRowsAffected != nil {
+		return errRowsAffected
+	}
+
+	if affected == 0 {
+		return ZeroRowsAffectedError
+	}
+
 	_, errReturnedTransactionID := tx.Exec("INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, created_at, type) VALUES ($1, $2, $3, $4, $5)", 0, walletID, amount, time.Now(), "DEPOSIT")
+
+	if errReturnedTransactionID != nil {
+		return errReturnedTransactionID
+	}
+
+	errCommit := tx.Commit()
+	if errCommit != nil {
+		return errCommit
+	}
+
+	return nil
+}
+
+func (r *WalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+	tx, errTx := r.db.Begin()
+	if errTx != nil {
+		return errTx
+	}
+
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			return
+		}
+	}(tx)
+
+	rows, errSubtractFunds := tx.Exec("UPDATE wallet SET balance = balance - $1 WHERE id = $2 AND profile_id = $3 AND balance - $1 >= 0", amount, fromWalletID, profileID)
+
+	if errSubtractFunds != nil {
+		return errSubtractFunds
+	}
+
+	affected, errRowsAffected := rows.RowsAffected()
+
+	if errRowsAffected != nil {
+		return errRowsAffected
+	}
+
+	if affected == 0 {
+		return ZeroRowsAffectedError
+	}
+
+	_, errAddFunds := tx.Exec("UPDATE wallet SET balance = balance + $1 WHERE id = $2", amount, toWalletID)
+
+	if errAddFunds != nil {
+		return errAddFunds
+	}
+
+	_, errReturnedTransactionID := tx.Exec("INSERT INTO transactions (from_wallet_id, to_wallet_id, amount, created_at, type) VALUES ($1, $2, $3, $4, $5)", fromWalletID, toWalletID, amount, time.Now(), "TRANSFER")
 
 	if errReturnedTransactionID != nil {
 		return errReturnedTransactionID

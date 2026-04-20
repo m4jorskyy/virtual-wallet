@@ -34,6 +34,10 @@ func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount 
 	return nil
 }
 
+func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+	return nil
+}
+
 func TestWalletHandler_GetWalletsByProfileID(t *testing.T) {
 	request := httptest.NewRequest("GET", "/api/wallets/", strings.NewReader(""))
 	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
@@ -79,5 +83,21 @@ func TestNewWalletHandler_AddFunds(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Errorf("AddFunds code is not 200")
+	}
+}
+
+func TestNewWalletHandler_TransferFunds(t *testing.T) {
+	request := httptest.NewRequest("POST", "/api/wallet/transferFunds", strings.NewReader("{\n	\"from_wallet_id\": 1,	\n	\"to_wallet_id\": 2,	\n	\"amount\": 1000	\n}"))
+	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
+	request = request.WithContext(ctx)
+
+	recorder := httptest.NewRecorder()
+	mockRepo := &MockWalletRepository{}
+	svc := service.NewWalletService(mockRepo)
+	handler := NewWalletHandler(svc)
+	handler.TransferFunds(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("TransferFunds( code is not 200")
 	}
 }
