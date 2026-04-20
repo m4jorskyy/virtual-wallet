@@ -10,6 +10,7 @@ type WalletRepository interface {
 	GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error)
 	CreateWallet(profileID int64, currency string) (int64, error)
 	AddFunds(walletID int64, profileID int64, amount int64) error
+	TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error
 }
 
 type WalletService struct {
@@ -21,6 +22,7 @@ func NewWalletService(repository WalletRepository) *WalletService {
 }
 
 var ErrInvalidAmount = errors.New("amount is less or equal than 0")
+var ErrSameWallet = errors.New("fromWalletID and toWalletID is the same")
 
 func (r *WalletService) GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error) {
 	wallets, errWallets := r.repository.GetWalletsByProfileID(profileID)
@@ -57,6 +59,24 @@ func (r *WalletService) AddFunds(walletID int64, profileID int64, amount int64) 
 
 	if errAddFunds != nil {
 		return errAddFunds
+	}
+
+	return nil
+}
+
+func (r *WalletService) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+	if fromWalletID == toWalletID {
+		return ErrSameWallet
+	}
+
+	if amount <= 0 {
+		return ErrInvalidAmount
+	}
+
+	errTransferFunds := r.repository.TransferFunds(profileID, fromWalletID, toWalletID, amount)
+
+	if errTransferFunds != nil {
+		return errTransferFunds
 	}
 
 	return nil
