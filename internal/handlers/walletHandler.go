@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"virtual-wallet/internal/models/data"
 	"virtual-wallet/internal/service"
 )
@@ -162,6 +163,51 @@ func (s *WalletHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		}
 
 		http.Error(w, fmt.Sprintf("Error transferring funds: %s", errTransferFunds), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *WalletHandler) GetTransactionsHistory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed!", http.StatusMethodNotAllowed)
+		return
+	}
+
+	profileID, ok := r.Context().Value(userContextKey).(int64)
+
+	if !ok {
+		http.Error(w, "Invalid userID", http.StatusInternalServerError)
+		return
+	}
+
+	walletID, errConv := strconv.ParseInt(r.URL.Query().Get("wallet_id"), 10, 64)
+
+	if errConv != nil {
+		http.Error(w, "Invalid walletID", http.StatusBadRequest)
+		return
+	}
+
+	history, errHistory := s.service.GetTransactionsHistory(profileID, walletID)
+
+	if errHistory != nil {
+		if errors.Is(errHistory, service.ErrUnauthorizedAccess) {
+			http.Error(w, "Unauthorized access", http.StatusUnauthorized)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Error getting history: %s", errHistory), http.StatusInternalServerError)
+		return
+	}
+
+	encoder := json.NewEncoder(w)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	errEncode := encoder.Encode(&history)
+	if errEncode != nil {
+		http.Error(w, fmt.Sprintf("Error encoding: %s", errEncode), http.StatusInternalServerError)
 		return
 	}
 

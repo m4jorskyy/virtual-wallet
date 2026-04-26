@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
 	"virtual-wallet/internal/service"
 )
@@ -36,6 +38,17 @@ func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount 
 
 func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
 	return nil
+}
+
+func (m *MockWalletRepository) GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error) {
+	var history []*transaction.Transaction
+
+	t := &transaction.Transaction{ID: 1, FromWalletID: 1, ToWalletID: 2, Amount: 1000,
+		CreatedAt: time.Now(), Type: "TRANSFER"}
+
+	history = append(history, t)
+
+	return history, nil
 }
 
 func TestWalletHandler_GetWalletsByProfileID(t *testing.T) {
@@ -98,6 +111,38 @@ func TestNewWalletHandler_TransferFunds(t *testing.T) {
 	handler.TransferFunds(recorder, request)
 
 	if recorder.Code != http.StatusOK {
-		t.Errorf("TransferFunds( code is not 200")
+		t.Errorf("TransferFunds code is not 200")
+	}
+}
+
+func TestNewWalletHandler_GetTransactionHistory(t *testing.T) {
+	request := httptest.NewRequest("GET", "/api/wallet/history?wallet_id=1", nil)
+	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
+	request = request.WithContext(ctx)
+
+	recorder := httptest.NewRecorder()
+	mockRepo := &MockWalletRepository{}
+	svc := service.NewWalletService(mockRepo)
+	handler := NewWalletHandler(svc)
+	handler.GetTransactionsHistory(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Errorf("GetTransactionHistory code is not 200")
+	}
+}
+
+func TestNewWalletHandler_GetTransactionHistory_UnauthorizedAccess(t *testing.T) {
+	request := httptest.NewRequest("GET", "/api/wallet/history?wallet_id=99", nil)
+	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
+	request = request.WithContext(ctx)
+
+	recorder := httptest.NewRecorder()
+	mockRepo := &MockWalletRepository{}
+	svc := service.NewWalletService(mockRepo)
+	handler := NewWalletHandler(svc)
+	handler.GetTransactionsHistory(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Errorf("GetTransactionHistory code is not 401")
 	}
 }

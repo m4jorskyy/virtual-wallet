@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"slices"
+	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
 )
 
@@ -11,6 +12,7 @@ type WalletRepository interface {
 	CreateWallet(profileID int64, currency string) (int64, error)
 	AddFunds(walletID int64, profileID int64, amount int64) error
 	TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error
+	GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error)
 }
 
 type WalletService struct {
@@ -23,6 +25,7 @@ func NewWalletService(repository WalletRepository) *WalletService {
 
 var ErrInvalidAmount = errors.New("amount is less or equal than 0")
 var ErrSameWallet = errors.New("fromWalletID and toWalletID is the same")
+var ErrUnauthorizedAccess = errors.New("wallet does not belong to user")
 
 func (r *WalletService) GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error) {
 	wallets, errWallets := r.repository.GetWalletsByProfileID(profileID)
@@ -80,4 +83,32 @@ func (r *WalletService) TransferFunds(profileID int64, fromWalletID int64, toWal
 	}
 
 	return nil
+}
+
+func (r *WalletService) GetTransactionsHistory(profileID int64, walletID int64) ([]*transaction.Transaction, error) {
+	wallets, errWallets := r.GetWalletsByProfileID(profileID)
+
+	if errWallets != nil {
+		return nil, errWallets
+	}
+
+	var walletIn bool
+
+	for i := 0; i < len(wallets); i++ {
+		if wallets[i].ID == walletID {
+			walletIn = true
+		}
+	}
+
+	if !walletIn {
+		return nil, ErrUnauthorizedAccess
+	}
+
+	history, errHistory := r.repository.GetTransactionsHistory(walletID)
+
+	if errHistory != nil {
+		return nil, errHistory
+	}
+
+	return history, nil
 }

@@ -1,7 +1,10 @@
 package service
 
 import (
+	"errors"
 	"testing"
+	"time"
+	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
 )
 
@@ -31,6 +34,17 @@ func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount 
 
 func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
 	return nil
+}
+
+func (r *MockWalletRepository) GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error) {
+	var history []*transaction.Transaction
+
+	t := &transaction.Transaction{ID: 1, FromWalletID: 1, ToWalletID: 2, Amount: 1000,
+		CreatedAt: time.Now(), Type: "TRANSFER"}
+
+	history = append(history, t)
+
+	return history, nil
 }
 
 func TestWalletService_GetWalletsByProfileID(t *testing.T) {
@@ -124,5 +138,35 @@ func TestWalletService_TransferFunds_SameWallet(t *testing.T) {
 	errTransferFunds := svc.TransferFunds(1, 1, 1, 1000)
 	if errTransferFunds == nil {
 		t.Errorf("Transferring funds went through")
+	}
+}
+
+func TestWalletService_GetTransactionsHistory(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	history, errHistory := svc.GetTransactionsHistory(1, 1)
+
+	if errHistory != nil {
+		t.Errorf("errHistory is not nil")
+	}
+
+	if len(history) != 1 {
+		t.Errorf("history length is not 1")
+	}
+}
+
+func TestWalletService_GetTransactionsHistory_UnauthorizedAccess(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	history, errHistory := svc.GetTransactionsHistory(1, 10)
+
+	if !errors.Is(errHistory, ErrUnauthorizedAccess) {
+		t.Errorf("errHistory is not ErrUnauthorizedAccess")
+	}
+
+	if len(history) != 0 {
+		t.Errorf("history length is not 0")
 	}
 }

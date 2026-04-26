@@ -51,7 +51,10 @@ func main() {
 	mux.HandleFunc("POST /api/login/", userHandler.LoginUser)
 
 	mux.HandleFunc("GET /api/wallets/", userHandler.AuthMiddleware(walletHandler.GetWalletsByProfileID))
-	mux.HandleFunc("POST /api/wallet/create", userHandler.AuthMiddleware(walletHandler.CreateWallet))
+	mux.HandleFunc("POST /api/wallet/create/", userHandler.AuthMiddleware(walletHandler.CreateWallet))
+	mux.HandleFunc("POST /api/wallet/addFunds/", userHandler.AuthMiddleware(walletHandler.AddFunds))
+	mux.HandleFunc("POST /api/wallet/transferFunds/", userHandler.AuthMiddleware(walletHandler.TransferFunds))
+	mux.HandleFunc("GET /api/wallets/history/", userHandler.AuthMiddleware(walletHandler.GetTransactionsHistory))
 
 	fmt.Println("Server started")
 
