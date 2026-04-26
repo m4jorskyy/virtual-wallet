@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
 )
 
@@ -15,7 +16,9 @@ func NewWalletRepository(db *sql.DB) *WalletRepository {
 	return &WalletRepository{db: db}
 }
 
-var ZeroRowsAffectedError error = errors.New("0 rows affected")
+var ZeroRowsAffectedError = errors.New("0 rows affected")
+
+var ErrUnauthorizedAccess = errors.New("wallet does not belong to user")
 
 func (r *WalletRepository) GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error) {
 	var wallets []*wallet.Wallet
@@ -153,4 +156,36 @@ func (r *WalletRepository) TransferFunds(profileID int64, fromWalletID int64, to
 	}
 
 	return nil
+}
+
+func (r *WalletRepository) GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error) {
+	rowsHistory, errHistory := r.db.Query("SELECT id, type, from_wallet_id, to_wallet_id, amount, "+
+		"created_at FROM transactions WHERE from_wallet_id = $1 OR to_wallet_ID = $1 ORDER BY created_at DESC",
+		walletID)
+
+	if errHistory != nil {
+		return nil, errHistory
+	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			return
+		}
+	}(rowsHistory)
+
+	var history []*transaction.Transaction
+
+	for rowsHistory.Next() {
+		row := &transaction.Transaction{}
+		errScan := rowsHistory.Scan(&row.ID, &row.Type, &row.FromWalletID, &row.ToWalletID, &row.Amount, &row.CreatedAt)
+		if errScan != nil {
+			return nil, errScan
+		}
+
+		history = append(history, row)
+	}
+
+	return history, nil
+
 }

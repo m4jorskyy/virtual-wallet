@@ -8,4 +8,5 @@ type Transaction struct {
 	ToWalletID   int64
 	Amount       int64
 	CreatedAt    time.Time
+	Type         string
 }
