@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
 	"virtual-wallet/internal/handlers"
 	"virtual-wallet/internal/middleware"
 	"virtual-wallet/internal/repository"
@@ -48,6 +51,11 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo)
 	walletHandler := handlers.NewWalletHandler(walletSvc)
 
+	srv := &http.Server{
+		Addr:    ":" + os.Getenv("SERVER_PORT"),
+		Handler: middleware.CORSMiddleware(middleware.RateLimitMiddleware(mux)),
+	}
+
 	mux.HandleFunc("POST /api/register/", userHandler.RegisterUser)
 	mux.HandleFunc("POST /api/login/", userHandler.LoginUser)
 
@@ -59,10 +67,25 @@ func main() {
 
 	fmt.Println("Server started")
 
-	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), middleware.CORSMiddleware(middleware.RateLimitMiddleware(mux)))
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
 
-	if errHTTP != nil {
-		panic(errHTTP)
+	go func() {
+
+		errHTTP := srv.ListenAndServe()
+		if errHTTP != nil {
+			return
+		}
+	}()
+
+	<-quit
+	fmt.Println("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	errShutdown := srv.Shutdown(ctx)
+
+	if errShutdown != nil {
+		panic(errShutdown)
 	}
-
 }
