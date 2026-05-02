@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,9 +19,12 @@ import (
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	errEnv := godotenv.Load()
 	if errEnv != nil {
-		panic(errEnv)
+		slog.Warn(errEnv.Error())
 	}
 
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD"), os.Getenv("HOST_IP_ADDRESS"), os.Getenv("HOST_PORT"), os.Getenv("DB_NAME"))
@@ -65,7 +69,7 @@ func main() {
 	mux.HandleFunc("POST /api/wallet/transferFunds/", userHandler.AuthMiddleware(walletHandler.TransferFunds))
 	mux.HandleFunc("GET /api/wallets/history/", userHandler.AuthMiddleware(walletHandler.GetTransactionsHistory))
 
-	fmt.Println("Server started")
+	slog.Info("Server started", "port", ":"+os.Getenv("SERVER_PORT"))
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
@@ -79,7 +83,7 @@ func main() {
 	}()
 
 	<-quit
-	fmt.Println("Shutting down server...")
+	slog.Info("Shutting down server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
