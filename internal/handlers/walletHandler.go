@@ -96,6 +96,13 @@ func (s *WalletHandler) AddFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+
+	if idempotencyKey == "" {
+		http.Error(w, "No idempotency key", http.StatusBadRequest)
+		return
+	}
+
 	profileID, ok := r.Context().Value(userContextKey).(int64)
 
 	if !ok {
@@ -112,7 +119,7 @@ func (s *WalletHandler) AddFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errAddFunds := s.service.AddFunds(request.WalletID, profileID, request.Amount)
+	errAddFunds := s.service.AddFunds(idempotencyKey, request.WalletID, profileID, request.Amount)
 
 	if errAddFunds != nil {
 		if errors.Is(errAddFunds, service.ErrInvalidAmount) {
@@ -133,6 +140,13 @@ func (s *WalletHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idempotencyKey := r.Header.Get("Idempotency-Key")
+
+	if idempotencyKey == "" {
+		http.Error(w, "No idempotency key", http.StatusBadRequest)
+		return
+	}
+
 	profileID, ok := r.Context().Value(userContextKey).(int64)
 
 	if !ok {
@@ -149,7 +163,8 @@ func (s *WalletHandler) TransferFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errTransferFunds := s.service.TransferFunds(profileID, request.FromWalletID, request.ToWalletID, request.Amount)
+	errTransferFunds := s.service.TransferFunds(idempotencyKey, profileID, request.FromWalletID, request.ToWalletID,
+		request.Amount)
 
 	if errTransferFunds != nil {
 		if errors.Is(errTransferFunds, service.ErrInvalidAmount) {

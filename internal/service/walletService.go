@@ -5,13 +5,14 @@ import (
 	"slices"
 	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
+	"virtual-wallet/internal/repository"
 )
 
 type WalletRepository interface {
 	GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error)
 	CreateWallet(profileID int64, currency string) (int64, error)
-	AddFunds(walletID int64, profileID int64, amount int64) error
-	TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error
+	AddFunds(idempotencyKey string, walletID int64, profileID int64, amount int64) error
+	TransferFunds(idempotencyKey string, profileID int64, fromWalletID int64, toWalletID int64, amount int64) error
 	GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error)
 }
 
@@ -53,21 +54,26 @@ func (r *WalletService) CreateWallet(profileID int64, currency string) (int64, e
 	return returnedWalletID, nil
 }
 
-func (r *WalletService) AddFunds(walletID int64, profileID int64, amount int64) error {
+func (r *WalletService) AddFunds(idempotencyKey string, walletID int64, profileID int64, amount int64) error {
 	if amount <= 0 {
 		return ErrInvalidAmount
 	}
 
-	errAddFunds := r.repository.AddFunds(walletID, profileID, amount)
+	errAddFunds := r.repository.AddFunds(idempotencyKey, walletID, profileID, amount)
 
 	if errAddFunds != nil {
+		if errors.Is(errAddFunds, repository.ErrIdempotentRequest) {
+			return nil
+		}
+		
 		return errAddFunds
 	}
 
 	return nil
 }
 
-func (r *WalletService) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+func (r *WalletService) TransferFunds(idempotencyKey string, profileID int64, fromWalletID int64, toWalletID int64,
+	amount int64) error {
 	if fromWalletID == toWalletID {
 		return ErrSameWallet
 	}
@@ -76,9 +82,13 @@ func (r *WalletService) TransferFunds(profileID int64, fromWalletID int64, toWal
 		return ErrInvalidAmount
 	}
 
-	errTransferFunds := r.repository.TransferFunds(profileID, fromWalletID, toWalletID, amount)
+	errTransferFunds := r.repository.TransferFunds(idempotencyKey, profileID, fromWalletID, toWalletID, amount)
 
 	if errTransferFunds != nil {
+		if errors.Is(errTransferFunds, repository.ErrIdempotentRequest) {
+			return nil
+		}
+
 		return errTransferFunds
 	}
 

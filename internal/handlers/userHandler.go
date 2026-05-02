@@ -35,7 +35,7 @@ func (s *UserHandler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		returnedID, errVerify := s.service.VerifyToken(token.Value)
 
 		if errVerify != nil {
-			http.Error(w, "Error veryfing", http.StatusUnauthorized)
+			http.Error(w, "Error verifying", http.StatusUnauthorized)
 			return
 		}
 
