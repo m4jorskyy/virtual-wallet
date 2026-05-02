@@ -13,6 +13,27 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
+		if allowedOrigin == "" {
+			allowedOrigin = "*"
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	errEnv := godotenv.Load()
 	if errEnv != nil {
@@ -58,7 +79,7 @@ func main() {
 
 	fmt.Println("Server started")
 
-	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), mux)
+	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), CORSMiddleware(mux))
 
 	if errHTTP != nil {
 		panic(errHTTP)
