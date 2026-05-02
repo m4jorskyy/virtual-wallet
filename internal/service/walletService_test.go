@@ -125,7 +125,7 @@ func TestWalletService_AddFunds_Idempotency(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errAddFunds := svc.AddFunds("asdfghjkl1234567890", 1, 1, -1000)
+	errAddFunds := svc.AddFunds("asdfghjkl1234567890", 1, 1, 1000)
 	if errAddFunds != nil {
 		t.Errorf("Expected nil error for idempotent request, got: %v", errAddFunds)
 	}
