@@ -18,7 +18,7 @@ func NewWalletRepository(db *sql.DB) *WalletRepository {
 
 var ZeroRowsAffectedError = errors.New("0 rows affected")
 
-var ErrUnauthorizedAccess = errors.New("wallet does not belong to user")
+var ErrIdempotentRequest = errors.New("idempotency key is in database")
 
 func (r *WalletRepository) GetWalletsByProfileID(profileID int64) ([]*wallet.Wallet, error) {
 	var wallets []*wallet.Wallet
@@ -66,7 +66,7 @@ func (r *WalletRepository) CreateWallet(profileID int64, currency string) (int64
 	return returnedWalletID, nil
 }
 
-func (r *WalletRepository) AddFunds(walletID int64, profileID int64, amount int64) error {
+func (r *WalletRepository) AddFunds(idempotencyKey string, walletID int64, profileID int64, amount int64) error {
 	tx, errTx := r.db.Begin()
 	if errTx != nil {
 		return errTx
@@ -78,6 +78,22 @@ func (r *WalletRepository) AddFunds(walletID int64, profileID int64, amount int6
 			return
 		}
 	}(tx)
+
+	result, errKey := tx.Exec("INSERT INTO idempotency_keys (key) VALUES ($1) ON CONFLICT DO NOTHING", idempotencyKey)
+
+	if errKey != nil {
+		return errKey
+	}
+
+	affectedKey, errKeyAffected := result.RowsAffected()
+
+	if errKeyAffected != nil {
+		return errKeyAffected
+	}
+
+	if affectedKey == 0 {
+		return ErrIdempotentRequest
+	}
 
 	rows, errAddFunds := tx.Exec("UPDATE wallet SET balance = balance + $1 WHERE id = $2 AND profile_id = $3", amount, walletID, profileID)
 
@@ -109,7 +125,7 @@ func (r *WalletRepository) AddFunds(walletID int64, profileID int64, amount int6
 	return nil
 }
 
-func (r *WalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+func (r *WalletRepository) TransferFunds(idempotencyKey string, profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
 	tx, errTx := r.db.Begin()
 	if errTx != nil {
 		return errTx
@@ -121,6 +137,22 @@ func (r *WalletRepository) TransferFunds(profileID int64, fromWalletID int64, to
 			return
 		}
 	}(tx)
+
+	result, errKey := tx.Exec("INSERT INTO idempotency_keys (key) VALUES ($1) ON CONFLICT DO NOTHING", idempotencyKey)
+
+	if errKey != nil {
+		return errKey
+	}
+
+	affectedKey, errKeyAffected := result.RowsAffected()
+
+	if errKeyAffected != nil {
+		return errKeyAffected
+	}
+
+	if affectedKey == 0 {
+		return ErrIdempotentRequest
+	}
 
 	rows, errSubtractFunds := tx.Exec("UPDATE wallet SET balance = balance - $1 WHERE id = $2 AND profile_id = $3 AND balance - $1 >= 0", amount, fromWalletID, profileID)
 

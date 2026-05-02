@@ -32,11 +32,11 @@ func (m *MockWalletRepository) CreateWallet(profileID int64, currency string) (i
 	return 1, nil
 }
 
-func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount int64) error {
+func (m *MockWalletRepository) AddFunds(idempotencyKey string, walletID int64, profileID int64, amount int64) error {
 	return nil
 }
 
-func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+func (m *MockWalletRepository) TransferFunds(idempotencyKey string, profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
 	return nil
 }
 
@@ -85,6 +85,7 @@ func TestWalletHandler_CreateWallet(t *testing.T) {
 
 func TestNewWalletHandler_AddFunds(t *testing.T) {
 	request := httptest.NewRequest("POST", "/api/wallet/addFunds", strings.NewReader("{\n	\"wallet_id\": 1,	\n	\"amount\": 1000	\n}"))
+	request.Header.Set("Idempotency-Key", "test-key-123")
 	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
 	request = request.WithContext(ctx)
 
@@ -101,6 +102,7 @@ func TestNewWalletHandler_AddFunds(t *testing.T) {
 
 func TestNewWalletHandler_TransferFunds(t *testing.T) {
 	request := httptest.NewRequest("POST", "/api/wallet/transferFunds", strings.NewReader("{\n	\"from_wallet_id\": 1,	\n	\"to_wallet_id\": 2,	\n	\"amount\": 1000	\n}"))
+	request.Header.Set("Idempotency-Key", "test-key-123")
 	ctx := context.WithValue(request.Context(), userContextKey, int64(1))
 	request = request.WithContext(ctx)
 

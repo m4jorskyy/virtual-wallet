@@ -6,6 +6,7 @@ import (
 	"time"
 	"virtual-wallet/internal/models/transaction"
 	"virtual-wallet/internal/models/wallet"
+	"virtual-wallet/internal/repository"
 )
 
 type MockWalletRepository struct{}
@@ -28,15 +29,24 @@ func (m *MockWalletRepository) CreateWallet(profileID int64, currency string) (i
 	return 1, nil
 }
 
-func (m *MockWalletRepository) AddFunds(walletID int64, profileID int64, amount int64) error {
+func (m *MockWalletRepository) AddFunds(idempotencyKey string, walletID int64, profileID int64, amount int64) error {
+	if idempotencyKey == "asdfghjkl1234567890" {
+		return repository.ErrIdempotentRequest
+	}
+
 	return nil
 }
 
-func (m *MockWalletRepository) TransferFunds(profileID int64, fromWalletID int64, toWalletID int64, amount int64) error {
+func (m *MockWalletRepository) TransferFunds(idempotencyKey string, profileID int64, fromWalletID int64,
+	toWalletID int64, amount int64) error {
+	if idempotencyKey == "asdfghjkl1234567890" {
+		return repository.ErrIdempotentRequest
+	}
+
 	return nil
 }
 
-func (r *MockWalletRepository) GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error) {
+func (m *MockWalletRepository) GetTransactionsHistory(walletID int64) ([]*transaction.Transaction, error) {
 	var history []*transaction.Transaction
 
 	t := &transaction.Transaction{ID: 1, FromWalletID: 1, ToWalletID: 2, Amount: 1000,
@@ -95,7 +105,7 @@ func TestWalletService_AddFunds(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errAddFunds := svc.AddFunds(1, 1, 1000)
+	errAddFunds := svc.AddFunds("asdfghjkl123456789", 1, 1, 1000)
 	if errAddFunds != nil {
 		t.Errorf("errAddFunds is not nil")
 	}
@@ -105,9 +115,19 @@ func TestWalletService_AddFunds_InvalidAmount(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errAddFunds := svc.AddFunds(1, 1, -1000)
+	errAddFunds := svc.AddFunds("asdfghjkl123456789", 1, 1, -1000)
 	if errAddFunds == nil {
 		t.Errorf("Adding funds went through")
+	}
+}
+
+func TestWalletService_AddFunds_Idempotency(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errAddFunds := svc.AddFunds("asdfghjkl1234567890", 1, 1, -1000)
+	if errAddFunds != nil {
+		t.Errorf("Expected nil error for idempotent request, got: %v", errAddFunds)
 	}
 }
 
@@ -115,7 +135,7 @@ func TestWalletService_TransferFunds(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errTransferFunds := svc.TransferFunds(1, 1, 2, 1000)
+	errTransferFunds := svc.TransferFunds("asdfghjkl123456789", 1, 1, 2, 1000)
 	if errTransferFunds != nil {
 		t.Errorf("errTransferFunds is not nil")
 	}
@@ -125,7 +145,7 @@ func TestWalletService_TransferFunds_InvalidAmount(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errTransferFunds := svc.TransferFunds(1, 1, 2, -1000)
+	errTransferFunds := svc.TransferFunds("asdfghjkl123456789", 1, 1, 2, -1000)
 	if errTransferFunds == nil {
 		t.Errorf("Transferring funds went through")
 	}
@@ -135,9 +155,20 @@ func TestWalletService_TransferFunds_SameWallet(t *testing.T) {
 	mockRepo := &MockWalletRepository{}
 	svc := NewWalletService(mockRepo)
 
-	errTransferFunds := svc.TransferFunds(1, 1, 1, 1000)
+	errTransferFunds := svc.TransferFunds("asdfghjkl123456789", 1, 1, 1, 1000)
 	if errTransferFunds == nil {
 		t.Errorf("Transferring funds went through")
+	}
+}
+
+func TestWalletService_TransferFunds_Idempotency(t *testing.T) {
+	mockRepo := &MockWalletRepository{}
+	svc := NewWalletService(mockRepo)
+
+	errTransferFunds := svc.TransferFunds("asdfghjkl1234567890", 1, 1, 2, 1000)
+
+	if errTransferFunds != nil {
+		t.Errorf("Expected nil error for idempotent request, got: %v", errTransferFunds)
 	}
 }
 
