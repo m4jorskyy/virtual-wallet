@@ -24,6 +24,7 @@ jobs:
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           echo "SERVER_PORT=${{ secrets.SERVER_PORT }}" >> .env
+          echo "ALLOWED_ORIGIN=${{ secrets.ALLOWED_ORIGIN }}" >> .env
 
       - name: Deploy new version of code
         run: docker-compose up -d --build
