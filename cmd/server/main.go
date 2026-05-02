@@ -6,33 +6,13 @@ import (
 	"net/http"
 	"os"
 	"virtual-wallet/internal/handlers"
+	"virtual-wallet/internal/middleware"
 	"virtual-wallet/internal/repository"
 	"virtual-wallet/internal/service"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
-
-func CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		allowedOrigin := os.Getenv("ALLOWED_ORIGIN")
-		if allowedOrigin == "" {
-			allowedOrigin = "*"
-		}
-
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
-}
 
 func main() {
 	errEnv := godotenv.Load()
@@ -79,7 +59,7 @@ func main() {
 
 	fmt.Println("Server started")
 
-	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), CORSMiddleware(mux))
+	errHTTP := http.ListenAndServe(":"+os.Getenv("SERVER_PORT"), middleware.CORSMiddleware(middleware.RateLimitMiddleware(mux)))
 
 	if errHTTP != nil {
 		panic(errHTTP)
